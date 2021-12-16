@@ -1,12 +1,10 @@
 import chess
 import pygame
 
+from player import Player
 from settings import *
 
-# constants
-# WIDTH = 800
-# HEIGHT = 800
-# SQUARE_SIZE = WIDTH // 8
+# SCHOLAR'S MATE FEN => r1bqkb1r/pppp1Qpp/2n2n2/4p3/2B1P3/8/PPPP1PPP/RNB1K1NR b KQkq - 0 4
 
 # setup board and widow
 board = chess.Board()
@@ -14,8 +12,6 @@ win = pygame.display.set_mode((WIDTH, HEIGHT))
 
 pygame.display.set_icon(pygame.image.load("./imgs/black/knight.png"))
 pygame.display.set_caption("Chess")
-
-print(board)
 
 images = {
     # black
@@ -48,7 +44,8 @@ for image in images:
 
 
 def draw_board():
-    win.fill(OAK)
+    win.fill(WHITE)
+    pygame.draw.rect(win, OAK, (0, 0, 800, 800))
 
     for rank in range(8):
         for square in range(rank % 2, 8, 2):
@@ -87,6 +84,15 @@ def get_material():
 
     return total_material
 
+print(board)
+
+# for move in board.legal_moves:
+#     print(move)
+
+white_player = Player(colour="w")
+black_player = Player(colour="b")
+
+# print(board.piece_at(chess.A1))
 
 while True:
     for event in pygame.event.get():
@@ -95,4 +101,15 @@ while True:
 
     draw_board()
     draw_pieces()
+
+    turn = board.fen().split()[1]
+
+    if turn == "w":
+        move = white_player.get_move(board)
+    else:
+        move = black_player.get_move(board)
+
+    if move:
+        board.push(move)
+    
     pygame.display.update()   
