@@ -1,12 +1,13 @@
-import simple_term_menu
+import neat
 
 
-class Player:
-    def __init__(self, colour):
+class Agent:
+    def __init__(self, colour, network):
         if colour != "w" and colour != "b":
             raise ValueError("colour argument must either be w or b")
 
-        self.colour = colour
+        self.colour  = colour
+        self.network = network
 
         # each index is the corresponding square in chess library
         # Example: positions index 0 = chess.A1
@@ -17,13 +18,11 @@ class Player:
             for letter in alphabet:
                 self.positions.append(f"{letter}{i}")
 
-    def get_move(self, board):
-        legal_moves_string = []
-        legal_moves_obj    = []
+    def legal_moves(self, board):
+        legal_moves = []
 
         for move in board.legal_moves:
-            legal_moves_string.append(str(move))
-            legal_moves_obj.append(move)
-
-        menu = simple_term_menu.TerminalMenu(legal_moves_string)
-        return legal_moves_obj[menu.show()]
+            legal_moves.append(move)
+    
+    def get_move(self, board, depth=18):
+        moves = self.legal_moves(board)

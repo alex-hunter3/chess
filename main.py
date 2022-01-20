@@ -1,115 +1,134 @@
 import chess
 import pygame
+import os
+import neat
 
 from player import Player
+from agent import Agent
 from settings import *
 
 # SCHOLAR'S MATE FEN => r1bqkb1r/pppp1Qpp/2n2n2/4p3/2B1P3/8/PPPP1PPP/RNB1K1NR b KQkq - 0 4
+generation = 0
 
-# setup board and widow
-board = chess.Board()
-win = pygame.display.set_mode((WIDTH, HEIGHT))
-
-pygame.display.set_icon(pygame.image.load("./imgs/black/knight.png"))
-pygame.display.set_caption("Chess")
-
-images = {
-    # black
-    "r": pygame.image.load("./imgs/black/rook.png"),
-    "n": pygame.image.load("./imgs/black/knight.png"),
-    "b": pygame.image.load("./imgs/black/bishop.png"),
-    "q": pygame.image.load("./imgs/black/queen.png"),
-    "k": pygame.image.load("./imgs/black/king.png"),
-    "p": pygame.image.load("./imgs/black/pawn.png"),
-
-    # white
-    "R": pygame.image.load("./imgs/white/rook.png"),
-    "N": pygame.image.load("./imgs/white/knight.png"),
-    "B": pygame.image.load("./imgs/white/bishop.png"),
-    "Q": pygame.image.load("./imgs/white/queen.png"),
-    "K": pygame.image.load("./imgs/white/king.png"),
-    "P": pygame.image.load("./imgs/white/pawn.png"),
-}
-
-material = {
-    "r": -5, "n": -3, "b": -3, "q": -9, "k": 0, "p": -1,
-    "R": 5, "N": 3, "B": 3, "Q": 9, "K": 0, "P": 1,
-}
-
-for image in images:
-    images[image] = pygame.transform.scale(
-        images[image],
-        (SQUARE_SIZE, SQUARE_SIZE)
-    )
+# if input("Human colour (W/B): ").lower() == "w":
+#     white_player = Player(colour="w")
+#     black_player = Agent(colour="b")
+# else:
+#     white_player = Agent(colour="w")
+#     black_player = Player(colour="b")
 
 
-def draw_board():
-    win.fill(WHITE)
-    pygame.draw.rect(win, OAK, (0, 0, 800, 800))
-
-    for rank in range(8):
-        for square in range(rank % 2, 8, 2):
-            pygame.draw.rect(
-                win,
-                WHITE,
-                (rank * SQUARE_SIZE, square * SQUARE_SIZE, SQUARE_SIZE, SQUARE_SIZE)
-            )
+# os.system("clear")
 
 
-def draw_pieces():
-    fen = board.fen().split()[0].split("/")
-    
-    for rank, rank_pieces in enumerate(fen):
-        file = 0
+class Game:
+    def __init__(self, white_player, black_player):
+        self.white_player = white_player
+        self.black_player = black_player
+        self.board        = chess.Board()
+        self.run          = True
 
-        for square in rank_pieces:
-            if square.isnumeric():
-                file += int(square)
+        # setup board and widow
+        self.win = pygame.display.set_mode((WIDTH, HEIGHT))
+
+        pygame.display.set_icon(pygame.image.load("./imgs/black/knight.png"))
+        pygame.display.set_caption("Chess")
+
+    def play(self):
+        while self.run:
+            # self.draw_board()
+            # self.draw_pieces()
+
+            # pygame.display.update()
+
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    self.run = False
+
+            turn = self.board.fen().split()[1]
+
+            if turn == "w":
+                move = self.white_player.get_move(self.board)
             else:
-                win.blit(
-                    images[square],
-                    (file * SQUARE_SIZE, rank * SQUARE_SIZE)
+                move = self.black_player.get_move(self.board)
+
+            if move:
+                self.board.push(move)
+
+
+    def draw_board(self):
+        self.win.fill(WHITE)
+        pygame.draw.rect(self.win, OAK, (0, 0, 800, 800))
+
+        for rank in range(8):
+            for square in range(rank % 2, 8, 2):
+                pygame.draw.rect(
+                    self.win,
+                    WHITE,
+                    (rank * SQUARE_SIZE, square * SQUARE_SIZE, SQUARE_SIZE, SQUARE_SIZE)
                 )
-                file += 1
+
+    def draw_pieces(self):
+        fen = self.board.fen().split()[0].split("/")
+        
+        for rank, rank_pieces in enumerate(fen):
+            file = 0
+
+            for square in rank_pieces:
+                if square.isnumeric():
+                    file += int(square)
+                else:
+                    self.win.blit(
+                        images[square],
+                        (file * SQUARE_SIZE, rank * SQUARE_SIZE)
+                    )
+                    file += 1
+
+    def get_material(self):
+        total_material = 0
+        fen = self.board.fen().split()[0].split("/")
+        
+        for rank_pieces in fen:
+            for square in rank_pieces:
+                if not square.isnumeric():
+                    total_material += material[square]
+
+        return total_material
 
 
-def get_material():
-    total_material = 0
-    fen = board.fen().split()[0].split("/")
-    
-    for rank_pieces in fen:
-        for square in rank_pieces:
-            if not square.isnumeric():
-                total_material += material[square]
+def main(genomes, config):
+    # setting up of the next generation
+    # will play a round robin tournament and whatever network has the most points will progress
+    global generation
+    generation += 1
 
-    return total_material
+    games          = []
+    white_networks = []
+    black_networks = []
+    ge             = []
 
-print(board)
+    for _, genome in genomes:
+        white_network = neat.nn.FeedForwardNetwork.create(genome, config)
+        black_network = neat.nn.FeedForwardNetwork.create(genome, config)
 
-# for move in board.legal_moves:
-#     print(move)
+        white_networks.append(white_network)
+        black_networks.append(black_network)
 
-white_player = Player(colour="w")
-black_player = Player(colour="b")
+        white_player = Agent(colour="w", network=white_network)
+        black_player = Agent(colour="b", network=black_network)
 
-# print(board.piece_at(chess.A1))
+        games.append(Game(white_player, black_player))
 
-while True:
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            quit()
 
-    draw_board()
-    draw_pieces()
+def setup(config_path):
+    config = neat.config.Config(neat.DefaultGenome, neat.DefaultReproduction,
+								neat.DefaultSpeciesSet, neat.DefaultStagnation,
+								config_path)
 
-    turn = board.fen().split()[1]
+    population = neat.Population(config)
+    population.run(main, 12)
 
-    if turn == "w":
-        move = white_player.get_move(board)
-    else:
-        move = black_player.get_move(board)
 
-    if move:
-        board.push(move)
-    
-    pygame.display.update()   
+if __name__ == "__main__":
+    config_path = os.path.join(os.getcwd(), "config-feedforward.txt")
+    setup(config_path)
