@@ -26,7 +26,6 @@ class Game:
         self.white_player = white_player
         self.black_player = black_player
         self.board        = chess.Board()
-        self.run          = True
 
         # setup board and widow
         self.win = pygame.display.set_mode((WIDTH, HEIGHT))
@@ -35,26 +34,34 @@ class Game:
         pygame.display.set_caption("Chess")
 
     def play(self):
-        while self.run:
-            # self.draw_board()
-            # self.draw_pieces()
+        # self.draw_board()
+        # self.draw_pieces()
 
-            # pygame.display.update()
+        # pygame.display.update()
 
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    self.run = False
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                self.run = False
 
-            turn = self.board.fen().split()[1]
+        turn = self.board.fen().split()[1]
 
-            if turn == "w":
-                move = self.white_player.get_move(self.board)
+        if turn == "w":
+            move = self.white_player.get_move(self.board)
+        else:
+            move = self.black_player.get_move(self.board)
+
+        if move:
+            self.board.push(move)
+
+        if self.board.outcome():
+            if self.board.outcome().result() == "1-0":
+                return (False, "w")
+            elif self.board.outcome().result() == "0-1":
+                return (False, "b")
             else:
-                move = self.black_player.get_move(self.board)
-
-            if move:
-                self.board.push(move)
-
+                return (False, "d")
+        else:
+            return (True, None)
 
     def draw_board(self):
         self.win.fill(WHITE)
@@ -98,26 +105,50 @@ class Game:
 
 def main(genomes, config):
     # setting up of the next generation
-    # will play a round robin tournament and whatever network has the most points will progress
+    # will play a round robin tournament and whatever network has the most points will reproduce
     global generation
     generation += 1
 
-    games          = []
-    white_networks = []
-    black_networks = []
-    ge             = []
+    games    = []
+    networks = []
+    players  = []
+    ge       = []
+
+    colour = "w"
+    run    = True
 
     for _, genome in genomes:
-        white_network = neat.nn.FeedForwardNetwork.create(genome, config)
-        black_network = neat.nn.FeedForwardNetwork.create(genome, config)
+        # might need to change so that the same nn gets training with both colours
+        network = neat.nn.FeedForwardNetwork.create(genome, config)
 
-        white_networks.append(white_network)
-        black_networks.append(black_network)
+        networks.append(network)
+        players.append(Agent(colour=colour, network=network))
 
-        white_player = Agent(colour="w", network=white_network)
-        black_player = Agent(colour="b", network=black_network)
+        if colour == "w":
+            colour = "b"
+        else:
+            colour = "w"
 
-        games.append(Game(white_player, black_player))
+        genome.fitness = 0
+        ge.append(genome)
+
+    for i in range(0, len(players), 2):
+        games.append(Game(players[i], players[i + 1]))
+
+    while run:
+        run = False
+
+        for i, game in enumerate(games):
+            # game.play returns true if game is still in progress and false if finished
+            run, winner = game.play()
+
+            if winner == "w":
+                players[i].score += 1
+            elif winner == "b":
+                players[i + 1] += 1
+            elif winner == "d":
+                players[i] += 1
+                players[i + 1] += 1
 
 
 def setup(config_path):

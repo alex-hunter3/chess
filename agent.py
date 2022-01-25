@@ -1,4 +1,6 @@
 import neat
+import math
+from settings import *
 
 
 class Agent:
@@ -23,6 +25,74 @@ class Agent:
 
         for move in board.legal_moves:
             legal_moves.append(move)
+
+        return legal_moves
+
+    def get_material(self, board):
+        total_material = 0
+        fen = board.fen().split()[0].split("/")
+        
+        for rank_pieces in fen:
+            for square in rank_pieces:
+                if not square.isnumeric():
+                    total_material += material[square]
+
+        return total_material
+
+    def evaluate(self, board):
+        return self.get_material(board)
+
+    def minimax(self, board, maximizing_player, alpha, beta, depth=18):
+        if depth == 0 or board.outcome():
+            # return static evaluation of the position, material or win/loss
+            if not board.outcome():
+                return self.evaluate(board)
+
+            if board.outcome().result() == "1-0" and self.colour == "w":
+                return math.inf
+            elif board.outcome().result() == "1-0" and self.colour == "b":
+                return -math.inf
+
+            if board.outcome().result() == "0-1" and self.colour == "b":
+                return math.inf
+            elif board.outcome().result() == "1-0" and self.colour == "w":
+                return -math.inf
+
+            if board.outcome().result() == "1/2-1/2":
+                return 0
+        
+        if maximizing_player:
+            max_eval = -math.inf
+
+            for child in self.legal_moves(board):
+                board.push(child)
+                eval = self.minimax(board, True, alpha, beta, depth - 1)
+                board.pop()
+
+                max_eval = max(max_eval, eval)
+                alpha = max(alpha, eval)
+
+                if beta <= alpha:
+                    break
+            
+            return max_eval
+
+        else:
+            min_eval = math.inf
+
+            for child in self.legal_moves(board):
+                board.push(child)
+                eval = self.minimax(board, False, alpha, beta, depth - 1)
+                board.pop()
+
+                min_eval = max(min_eval, eval)
+                beta = max(beta, eval)
+
+                if beta <= alpha:
+                    break
+            
+            return min_eval
     
     def get_move(self, board, depth=18):
-        moves = self.legal_moves(board)
+        eval = self.minimax(board, True, -math.inf, math.inf, 5)
+        print(eval)
