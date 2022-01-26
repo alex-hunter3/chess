@@ -43,11 +43,7 @@ class Agent:
         return self.get_material(board)
 
     def minimax(self, board, maximizing_player, alpha, beta, depth=18):
-        if depth == 0 or board.outcome():
-            # return static evaluation of the position, material or win/loss
-            if not board.outcome():
-                return self.evaluate(board)
-
+        if board.outcome():
             if board.outcome().result() == "1-0" and self.colour == "w":
                 return math.inf
             elif board.outcome().result() == "1-0" and self.colour == "b":
@@ -60,13 +56,17 @@ class Agent:
 
             if board.outcome().result() == "1/2-1/2":
                 return 0
+
+        if depth == 0:
+            # return static evaluation of the position
+            return self.evaluate(board)
         
         if maximizing_player:
             max_eval = -math.inf
 
             for child in self.legal_moves(board):
                 board.push(child)
-                eval = self.minimax(board, True, alpha, beta, depth - 1)
+                eval = self.minimax(board, False, alpha, beta, depth - 1)
                 board.pop()
 
                 max_eval = max(max_eval, eval)
@@ -82,11 +82,11 @@ class Agent:
 
             for child in self.legal_moves(board):
                 board.push(child)
-                eval = self.minimax(board, False, alpha, beta, depth - 1)
+                eval = self.minimax(board, True, alpha, beta, depth - 1)
                 board.pop()
 
-                min_eval = max(min_eval, eval)
-                beta = max(beta, eval)
+                min_eval = min(min_eval, eval)
+                beta = min(beta, eval)
 
                 if beta <= alpha:
                     break
@@ -94,5 +94,6 @@ class Agent:
             return min_eval
     
     def get_move(self, board, depth=18):
+        # board, maximizing_player, alpha, beta, depth=18
         eval = self.minimax(board, True, -math.inf, math.inf, 5)
         print(eval)
