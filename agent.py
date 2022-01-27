@@ -1,15 +1,17 @@
-import neat
 import math
+import chess
+
 from settings import *
 
 
 class Agent:
-    def __init__(self, colour, network):
+    def __init__(self, colour, network, search_depth=18):
         if colour != "w" and colour != "b":
             raise ValueError("colour argument must either be w or b")
 
-        self.colour  = colour
-        self.network = network
+        self.colour       = colour
+        self.network      = network
+        self.search_depth = search_depth
 
         # each index is the corresponding square in chess library
         # Example: positions index 0 = chess.A1
@@ -40,9 +42,20 @@ class Agent:
         return total_material
 
     def evaluate(self, board):
-        return self.get_material(board)
+        fen = board.fen().split()[0].split("/")
+        flattened_board = []
 
-    def minimax(self, board, maximizing_player, alpha, beta, depth=18):
+        for rank in fen:
+            for square in rank:
+                if square.isnumeric():
+                    for _ in range(int(square)):
+                        flattened_board.append(0)
+                else:
+                    flattened_board.append(material[square])
+
+        return self.network.activate(tuple(flattened_board))
+
+    def minimax(self, board, maximizing_player, alpha, beta, depth):
         if board.outcome():
             if board.outcome().result() == "1-0" and self.colour == "w":
                 return math.inf
@@ -93,7 +106,14 @@ class Agent:
             
             return min_eval
     
-    def get_move(self, board, depth=18):
-        # board, maximizing_player, alpha, beta, depth=18
-        eval = self.minimax(board, True, -math.inf, math.inf, 5)
-        print(eval)
+    def get_move(self, board):
+        return self.minimax(board, True, -math.inf, math.inf, self.search_depth)
+
+
+# for testing
+if __name__ == "__main__":
+    board = chess.Board()
+
+    w_agent = Agent("w", None, 6)
+    move = w_agent.get_move(board)
+    print(move)
