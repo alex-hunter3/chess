@@ -3,65 +3,46 @@ import pygame
 import os
 import neat
 
-from player import Player
+from multiprocessing import Process
 from agent import Agent
 from settings import *
 
 # SCHOLAR'S MATE FEN => r1bqkb1r/pppp1Qpp/2n2n2/4p3/2B1P3/8/PPPP1PPP/RNB1K1NR b KQkq - 0 4
 generation = 0
-
-# if input("Human colour (W/B): ").lower() == "w":
-#     white_player = Player(colour="w")
-#     black_player = Agent(colour="b")
-# else:
-#     white_player = Agent(colour="w")
-#     black_player = Player(colour="b")
-
-
-# os.system("clear")
+pygame.init()
 
 
 class Game:
-    def __init__(self, white_player, black_player):
+    def __init__(self, white_player, black_player, id):
         self.white_player = white_player
         self.black_player = black_player
         self.board        = chess.Board()
-
-        # setup board and widow
-        self.win = pygame.display.set_mode((WIDTH, HEIGHT))
-
-        pygame.display.set_icon(pygame.image.load("./imgs/black/knight.png"))
-        pygame.display.set_caption("Chess")
+        self.game_over    = False
+        self.id           = id
 
     def play(self):
-        # self.draw_board()
-        # self.draw_pieces()
+        run = True
 
-        # pygame.display.update()
+        while run:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    self.run = False
 
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                self.run = False
+            turn = self.board.fen().split()[1]
 
-        turn = self.board.fen().split()[1]
-
-        if turn == "w":
-            move = self.white_player.get_move(self.board)
-        else:
-            move = self.black_player.get_move(self.board)
-
-        if move:
-            self.board.push(move)
-
-        if self.board.outcome():
-            if self.board.outcome().result() == "1-0":
-                return (False, "w")
-            elif self.board.outcome().result() == "0-1":
-                return (False, "b")
+            if turn == "w":
+                move = self.white_player.get_move(self.board)
             else:
-                return (False, "d")
-        else:
-            return (True, None)
+                move = self.black_player.get_move(self.board)
+
+            if move:
+                self.board.push(move)
+
+            if self.board.outcome():
+                run = False
+                update_results(self.board.outcome().result())
+            else:
+                return (True, None)
 
     def draw_board(self):
         self.win.fill(WHITE)
@@ -91,34 +72,34 @@ class Game:
                     )
                     file += 1
 
-    def get_material(self):
-        total_material = 0
-        fen = self.board.fen().split()[0].split("/")
-        
-        for rank_pieces in fen:
-            for square in rank_pieces:
-                if not square.isnumeric():
-                    total_material += material[square]
 
-        return total_material
+def update_results(result, index):
+    global ge
+    
+    if result == "1-0":
+        ge[index].fitness += 1
+    elif result == "0-1":
+        ge[index + 1].fitness += 1
+    else:
+        ge[index].fitness += 0.5
+        ge[index + 1].fitness += 0.5
 
 
 def main(genomes, config):
     # setting up of the next generation
     # will play a round robin tournament and whatever network has the most points will reproduce
-    global generation
+    global generation, ge
     generation += 1
 
-    games    = []
-    networks = []
-    players  = []
-    ge       = []
+    games     = []
+    networks  = []
+    players   = []
+    ge        = []
+    processes = []
 
     colour = "w"
-    run    = True
 
     for _, genome in genomes:
-        # might need to change so that the same nn gets training with both colours
         network = neat.nn.FeedForwardNetwork.create(genome, config)
 
         networks.append(network)
@@ -133,22 +114,16 @@ def main(genomes, config):
         ge.append(genome)
 
     for i in range(0, len(players), 2):
-        games.append(Game(players[i], players[i + 1]))
+        games.append(Game(players[i], players[i + 1], id=i))
+        
+    for game in games:
+        processes.append(Process(target=game.play))
 
-    while run:
-        run = False
+    for process in processes:
+        process.start()
 
-        for i, game in enumerate(games):
-            # game.play returns true if game is still in progress and false if finished
-            run, winner = game.play()
-
-            if winner == "w":
-                players[i].score += 1
-            elif winner == "b":
-                players[i + 1] += 1
-            elif winner == "d":
-                players[i] += 1
-                players[i + 1] += 1
+    for process in processes:
+        process.join()
 
 
 def setup(config_path):
@@ -156,7 +131,13 @@ def setup(config_path):
 								neat.DefaultSpeciesSet, neat.DefaultStagnation,
 								config_path)
 
+    # setup population
     population = neat.Population(config)
+    population.add_reporter(neat.StdOutReporter(True))
+    stats = neat.StatisticsReporter()
+    population.add_reporter(stats)
+
+    # running games and training
     population.run(main, 12)
 
 

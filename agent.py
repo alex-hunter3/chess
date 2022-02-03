@@ -1,6 +1,7 @@
 import math
 import chess
 
+from copy import deepcopy
 from settings import *
 
 
@@ -12,6 +13,8 @@ class Agent:
         self.colour       = colour
         self.network      = network
         self.search_depth = search_depth
+        self.score        = 0
+        self.best_move    = None
 
         # each index is the corresponding square in chess library
         # Example: positions index 0 = chess.A1
@@ -53,58 +56,69 @@ class Agent:
                 else:
                     flattened_board.append(material[square])
 
-        return self.network.activate(tuple(flattened_board))
+        # return self.get_material(board)
+        return self.network.activate(tuple(flattened_board))[0]
 
     def minimax(self, board, maximizing_player, alpha, beta, depth):
+        # board = deepcopy(board)
+        
         if board.outcome():
             if board.outcome().result() == "1-0" and self.colour == "w":
-                return math.inf
+                return math.inf, board
             elif board.outcome().result() == "1-0" and self.colour == "b":
-                return -math.inf
+                return -math.inf, board
 
             if board.outcome().result() == "0-1" and self.colour == "b":
-                return math.inf
+                return math.inf, board
             elif board.outcome().result() == "1-0" and self.colour == "w":
-                return -math.inf
+                return -math.inf, board
 
             if board.outcome().result() == "1/2-1/2":
-                return 0
+                return 0, board
 
         if depth == 0:
             # return static evaluation of the position
-            return self.evaluate(board)
+            return self.evaluate(board), board
         
         if maximizing_player:
-            max_eval = -math.inf
+            max_eval  = -math.inf
+            best_move = None
 
             for child in self.legal_moves(board):
                 board.push(child)
-                eval = self.minimax(board, False, alpha, beta, depth - 1)
+                eval = self.minimax(board, False, alpha, beta, depth - 1)[0]
                 board.pop()
 
                 max_eval = max(max_eval, eval)
                 alpha = max(alpha, eval)
 
+                if max_eval == eval:
+                    best_move = child
+
                 if beta <= alpha:
                     break
             
-            return max_eval
+            return max_eval, best_move
 
         else:
-            min_eval = math.inf
+            min_eval  = math.inf
+            best_move = None
 
             for child in self.legal_moves(board):
                 board.push(child)
-                eval = self.minimax(board, True, alpha, beta, depth - 1)
+                eval = self.minimax(board, True, alpha, beta, depth - 1)[0]
                 board.pop()
 
                 min_eval = min(min_eval, eval)
                 beta = min(beta, eval)
 
+                if min_eval == eval:
+                    best_move = child
+
                 if beta <= alpha:
                     break
             
-            return min_eval
+            return min_eval, best_move
     
     def get_move(self, board):
         return self.minimax(board, True, -math.inf, math.inf, self.search_depth)
@@ -114,6 +128,6 @@ class Agent:
 if __name__ == "__main__":
     board = chess.Board()
 
-    w_agent = Agent("w", None, 6)
-    move = w_agent.get_move(board)
-    print(move)
+    w_agent = Agent("w", None, 4)
+    (eval, move) = w_agent.get_move(board)
+    print(eval, move)
