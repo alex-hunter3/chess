@@ -1,12 +1,9 @@
 import math
 import chess
 
-from copy import deepcopy
-from settings import *
-
 
 class Agent:
-    def __init__(self, colour, network, search_depth=18):
+    def __init__(self, colour, network, search_depth=4):
         if colour != "w" and colour != "b":
             raise ValueError("colour argument must either be w or b")
 
@@ -14,14 +11,10 @@ class Agent:
         self.network      = network
         self.search_depth = search_depth
         self.score        = 0
-
-    def legal_moves(self, board):
-        legal_moves = []
-
-        for move in board.legal_moves:
-            legal_moves.append(move)
-
-        return legal_moves
+        self.material     = {
+            "r": -5, "n": -3, "b": -3.5, "q": -9, "k": -0.5, "p": -1,
+            "R": 5,  "N": 3,  "B": 3.5,  "Q": 9,  "K": 0.5,  "P": 1,
+        }
 
     def get_material(self, board):
         total_material = 0
@@ -30,7 +23,7 @@ class Agent:
         for rank_pieces in fen:
             for square in rank_pieces:
                 if not square.isnumeric():
-                    total_material += material[square]
+                    total_material += self.material[square]
 
         return total_material
 
@@ -44,7 +37,7 @@ class Agent:
                     for _ in range(int(square)):
                         flattened_board.append(0)
                 else:
-                    flattened_board.append(material[square])
+                    flattened_board.append(self.material[square])
 
         # return self.get_material(board)
         return self.network.activate(tuple(flattened_board))[0]
@@ -54,27 +47,27 @@ class Agent:
         
         if board.outcome():
             if board.outcome().result() == "1-0" and self.colour == "w":
-                return math.inf, board
+                return math.inf, None
             elif board.outcome().result() == "1-0" and self.colour == "b":
-                return -math.inf, board
+                return -math.inf, None
 
             if board.outcome().result() == "0-1" and self.colour == "b":
-                return math.inf, board
+                return math.inf, None
             elif board.outcome().result() == "1-0" and self.colour == "w":
-                return -math.inf, board
+                return -math.inf, None
 
             if board.outcome().result() == "1/2-1/2":
-                return 0, board
+                return 0, None
 
         if depth == 0:
             # return static evaluation of the position
-            return self.evaluate(board), board
+            return self.evaluate(board), None
         
         if maximizing_player:
             max_eval  = -math.inf
             best_move = None
 
-            for child in self.legal_moves(board):
+            for child in board.legal_moves:
                 board.push(child)
                 eval = self.minimax(board, False, alpha, beta, depth - 1)[0]
                 board.pop()
@@ -94,7 +87,7 @@ class Agent:
             min_eval  = math.inf
             best_move = None
 
-            for child in self.legal_moves(board):
+            for child in board.legal_moves:
                 board.push(child)
                 eval = self.minimax(board, True, alpha, beta, depth - 1)[0]
                 board.pop()
@@ -111,7 +104,7 @@ class Agent:
             return min_eval, best_move
     
     def get_move(self, board):
-        return self.minimax(board, True, -math.inf, math.inf, self.search_depth)
+        return self.minimax(board, True, -math.inf, math.inf, 4)
 
     def flip_colour(self):
         if self.colour == "w":

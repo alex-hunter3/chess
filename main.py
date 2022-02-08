@@ -26,6 +26,7 @@ class Game:
         self.board        = chess.Board()
         self.game_over    = False
         self.id           = id
+        self.completed    = False
 
     def play(self):
         run = True
@@ -38,18 +39,21 @@ class Game:
             turn = self.board.fen().split()[1]
 
             if turn == "w":
-                move = self.white_player.get_move(self.board)
+                move = self.white_player.get_move(self.board)[1]
             else:
-                move = self.black_player.get_move(self.board)
+                move = self.black_player.get_move(self.board)[1]
 
             if move:
                 self.board.push(move)
 
             if self.board.outcome():
                 run = False
+                self.completed = True
+
+                print(f"***Game {self.id} finished***")
+                print(f"Result: {self.board.outcome().result()}")
+
                 update_results(self.board.outcome().result())
-            else:
-                return (True, None)
 
     def draw_board(self):
         self.win.fill(WHITE)
@@ -94,7 +98,6 @@ def update_results(result, index):
 
 def main(genomes, config):
     # setting up of the next generation
-    # will play a round robin tournament and whatever network has the most points will reproduce
     global generation, ge
     generation += 1
 
@@ -118,12 +121,18 @@ def main(genomes, config):
         genome.fitness = 0
         ge.append(genome)
 
+    tournament_rount = 1
+
     for _ in range(len(players)):
         processes = []
         games     = []
 
         last_player = players.pop()
         players.insert(0, last_player)
+        last_network = networks.pop()
+        networks.insert(0, last_network)
+        last_ge = ge.pop()
+        ge.insert(0, last_ge)
 
         for player in players:
             player.flip_colour()
@@ -137,8 +146,21 @@ def main(genomes, config):
         for process in processes:
             process.start()
 
-        for process in processes:
-            process.join()
+        run = True
+
+        # loop that stops until all games are completed and have a result
+        while run:
+            games_completed = 0
+
+            for game in games:
+                if game.completed:
+                    games_completed += 1
+
+            if games_completed == len(games):
+                run = False
+
+        print(f"All games completed moving onto round {tournament_rount}")
+        tournament_rount += 1
 
 
 def setup(config_path):
@@ -157,5 +179,5 @@ def setup(config_path):
 
 
 if __name__ == "__main__":
-    config_path = os.path.join(os.getcwd(), "config-feedforward.txt")
+    config_path = os.path.join(os.getcwd(), "agent", "config-feedforward.txt")
     setup(config_path)
