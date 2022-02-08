@@ -4,8 +4,15 @@ import os
 import neat
 
 from multiprocessing import Process
-from agent import Agent
+from agent.agent import Agent
 from settings import *
+
+# TODO:
+# 1) pop all parallel arrays and insert in beginning to simulate round robin tournament
+# 2) list of openings moves in theory book
+# 3) endgame theory
+# 4) look into how to know what depth to search to
+# 5) work on currently looking through all possible moves opponent can play while they are processing
 
 # SCHOLAR'S MATE FEN => r1bqkb1r/pppp1Qpp/2n2n2/4p3/2B1P3/8/PPPP1PPP/RNB1K1NR b KQkq - 0 4
 generation = 0

@@ -14,16 +14,6 @@ class Agent:
         self.network      = network
         self.search_depth = search_depth
         self.score        = 0
-        self.best_move    = None
-
-        # each index is the corresponding square in chess library
-        # Example: positions index 0 = chess.A1
-        self.positions = []
-        alphabet = "abcdefgh"
-
-        for i in range(1, 9):
-            for letter in alphabet:
-                self.positions.append(f"{letter}{i}")
 
     def legal_moves(self, board):
         legal_moves = []
