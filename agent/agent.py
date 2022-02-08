@@ -113,6 +113,12 @@ class Agent:
     def get_move(self, board):
         return self.minimax(board, True, -math.inf, math.inf, self.search_depth)
 
+    def flip_colour(self):
+        if self.colour == "w":
+            self.colour = "b"
+        else:
+            self.colour = "w"
+
 
 # for testing
 if __name__ == "__main__":

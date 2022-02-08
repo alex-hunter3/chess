@@ -8,7 +8,7 @@ from agent.agent import Agent
 from settings import *
 
 # TODO:
-# 1) pop all parallel arrays and insert in beginning to simulate round robin tournament
+# 1) *COMPLETED* pop all parallel arrays and insert in beginning to simulate round robin tournament
 # 2) list of openings moves in theory book
 # 3) endgame theory
 # 4) look into how to know what depth to search to
@@ -98,11 +98,9 @@ def main(genomes, config):
     global generation, ge
     generation += 1
 
-    games     = []
     networks  = []
     players   = []
     ge        = []
-    processes = []
 
     colour = "w"
 
@@ -120,17 +118,27 @@ def main(genomes, config):
         genome.fitness = 0
         ge.append(genome)
 
-    for i in range(0, len(players), 2):
-        games.append(Game(players[i], players[i + 1], id=i))
-        
-    for game in games:
-        processes.append(Process(target=game.play))
+    for _ in range(len(players)):
+        processes = []
+        games     = []
 
-    for process in processes:
-        process.start()
+        last_player = players.pop()
+        players.insert(0, last_player)
 
-    for process in processes:
-        process.join()
+        for player in players:
+            player.flip_colour()
+
+        for i in range(0, len(players), 2):
+            games.append(Game(players[i], players[i + 1], id=i))
+            
+        for game in games:
+            processes.append(Process(target=game.play))
+
+        for process in processes:
+            process.start()
+
+        for process in processes:
+            process.join()
 
 
 def setup(config_path):
