@@ -3,13 +3,12 @@ import chess
 
 
 class Agent:
-    def __init__(self, colour, network, search_depth=4):
+    def __init__(self, colour, network):
         if colour != "w" and colour != "b":
             raise ValueError("colour argument must either be w or b")
 
         self.colour       = colour
         self.network      = network
-        self.search_depth = search_depth
         self.score        = 0
         self.material     = {
             "r": -5, "n": -3, "b": -3.5, "q": -9, "k": -0.5, "p": -1,
@@ -43,8 +42,6 @@ class Agent:
         return self.network.activate(tuple(flattened_board))[0]
 
     def minimax(self, board, maximizing_player, alpha, beta, depth):
-        # board = deepcopy(board)
-        
         if board.outcome():
             if board.outcome().result() == "1-0" and self.colour == "w":
                 return math.inf, None
@@ -75,7 +72,8 @@ class Agent:
                 max_eval = max(max_eval, eval)
                 alpha = max(alpha, eval)
 
-                if max_eval == eval:
+                # might be == instead
+                if max_eval >= eval:
                     best_move = child
 
                 if beta <= alpha:
@@ -95,7 +93,8 @@ class Agent:
                 min_eval = min(min_eval, eval)
                 beta = min(beta, eval)
 
-                if min_eval == eval:
+                # might be == instead
+                if min_eval <= eval:
                     best_move = child
 
                 if beta <= alpha:
@@ -103,8 +102,11 @@ class Agent:
             
             return min_eval, best_move
     
-    def get_move(self, board):
-        return self.minimax(board, True, -math.inf, math.inf, 4)
+    def get_move(self, board, search_depth=4):
+        if self.colour == "w":
+            return self.minimax(board, True, -math.inf, math.inf, search_depth)
+        else:
+            return self.minimax(board, False, -math.inf, math.inf, search_depth)
 
     def flip_colour(self):
         if self.colour == "w":
@@ -117,6 +119,6 @@ class Agent:
 if __name__ == "__main__":
     board = chess.Board()
 
-    w_agent = Agent("w", None, 4)
-    (eval, move) = w_agent.get_move(board)
+    w_agent = Agent("w", None)
+    (eval, move) = w_agent.get_move(board, 6)
     print(eval, move)

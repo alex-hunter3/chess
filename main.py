@@ -134,9 +134,6 @@ def main(genomes, config):
         last_ge = ge.pop()
         ge.insert(0, last_ge)
 
-        for player in players:
-            player.flip_colour()
-
         for i in range(0, len(players), 2):
             games.append(Game(players[i], players[i + 1], id=i))
             
@@ -148,6 +145,10 @@ def main(genomes, config):
             
         for process in processes:
             process.join()
+
+        # flip colours after all games are finished before moving onto next game
+        for player in players:
+            player.flip_colour()
 
         print(f"All games completed moving onto round {tournament_round}")
         tournament_round += 1
