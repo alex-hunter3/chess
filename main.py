@@ -121,7 +121,7 @@ def main(genomes, config):
         genome.fitness = 0
         ge.append(genome)
 
-    tournament_rount = 1
+    tournament_round = 1
 
     for _ in range(len(players)):
         processes = []
@@ -145,22 +145,12 @@ def main(genomes, config):
 
         for process in processes:
             process.start()
+            
+        for process in processes:
+            process.join()
 
-        run = True
-
-        # loop that stops until all games are completed and have a result
-        while run:
-            games_completed = 0
-
-            for game in games:
-                if game.completed:
-                    games_completed += 1
-
-            if games_completed == len(games):
-                run = False
-
-        print(f"All games completed moving onto round {tournament_rount}")
-        tournament_rount += 1
+        print(f"All games completed moving onto round {tournament_round}")
+        tournament_round += 1
 
 
 def setup(config_path):
