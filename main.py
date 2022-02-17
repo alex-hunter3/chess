@@ -1,9 +1,8 @@
 import chess
-import pygame
 import os
 import neat
 
-from multiprocessing import Process
+from multiprocessing import Pool
 from agent.agent import Agent
 from settings import *
 
@@ -16,94 +15,55 @@ from settings import *
 
 # SCHOLAR'S MATE FEN => r1bqkb1r/pppp1Qpp/2n2n2/4p3/2B1P3/8/PPPP1PPP/RNB1K1NR b KQkq - 0 4
 generation = 0
-pygame.init()
 
 
-class Game:
-    def __init__(self, white_player, black_player, id):
-        self.white_player = white_player
-        self.black_player = black_player
-        self.board        = chess.Board()
-        self.game_over    = False
-        self.id           = id
-        self.completed    = False
+def play(ge):
+    global players
+    run = True
+    white_player = white_player
+    black_player = black_player
+    board = chess.Board()
 
-    def play(self):
-        run = True
-
-        while run:
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    self.run = False
-
-            turn = self.board.fen().split()[1]
-
-            if turn == "w":
-                move = self.white_player.get_move(self.board)[1]
-            else:
-                move = self.black_player.get_move(self.board)[1]
-
-            if move:
-                self.board.push(move)
-
-            if self.board.outcome():
+    while run:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
                 run = False
-                self.completed = True
 
-                print(f"***Game {self.id} finished***")
-                print(f"Result: {self.board.outcome().result()}")
+        turn = board.fen().split()[1]
 
-                update_results(self.board.outcome().result())
+        if turn == "w":
+            move = white_player.get_move(board)[1]
+        else:
+            move = black_player.get_move(board)[1]
 
-    def draw_board(self):
-        self.win.fill(WHITE)
-        pygame.draw.rect(self.win, OAK, (0, 0, 800, 800))
+        if move:
+            board.push(move)
+        else:
+            print(move)
 
-        for rank in range(8):
-            for square in range(rank % 2, 8, 2):
-                pygame.draw.rect(
-                    self.win,
-                    WHITE,
-                    (rank * SQUARE_SIZE, square * SQUARE_SIZE, SQUARE_SIZE, SQUARE_SIZE)
-                )
+        if board.outcome():
+            run = False
+            result = board.outcome().result()
 
-    def draw_pieces(self):
-        fen = self.board.fen().split()[0].split("/")
-        
-        for rank, rank_pieces in enumerate(fen):
-            file = 0
+            print(f"***Game finished***")
+            print(f"Result: {board.outcome().result()}")
 
-            for square in rank_pieces:
-                if square.isnumeric():
-                    file += int(square)
-                else:
-                    self.win.blit(
-                        images[square],
-                        (file * SQUARE_SIZE, rank * SQUARE_SIZE)
-                    )
-                    file += 1
-
-
-def update_results(result, index):
-    global ge
-    
-    if result == "1-0":
-        ge[index].fitness += 1
-    elif result == "0-1":
-        ge[index + 1].fitness += 1
-    else:
-        ge[index].fitness += 0.5
-        ge[index + 1].fitness += 0.5
+            if result == "1-0":
+                return [ge[0] + 1, ge[1]]
+            elif result == "0-1":
+                return [ge[0], ge[1] + 1]
+            else:
+                return [ge[0] + 0.5, ge[1] + 0.5]
 
 
 def main(genomes, config):
     # setting up of the next generation
-    global generation, ge
+    global generation, players
     generation += 1
 
-    networks  = []
-    players   = []
-    ge        = []
+    networks = []
+    players = []
+    ge = []
 
     colour = "w"
 
@@ -124,9 +84,6 @@ def main(genomes, config):
     tournament_round = 1
 
     for _ in range(len(players)):
-        processes = []
-        games     = []
-
         last_player = players.pop()
         players.insert(0, last_player)
         last_network = networks.pop()
@@ -134,30 +91,46 @@ def main(genomes, config):
         last_ge = ge.pop()
         ge.insert(0, last_ge)
 
-        for i in range(0, len(players), 2):
-            games.append(Game(players[i], players[i + 1], id=i))
-            
-        for game in games:
-            processes.append(Process(target=game.play))
+        # for i in range(0, len(players), 2):
+        #     games.append(Game(players[i], players[i + 1], id=i))
 
-        for process in processes:
-            process.start()
-            
-        for process in processes:
-            process.join()
+        # grouping all networks together
+        for i in range(0, len(ge), 2):
+            ge[i] = [ge[i], ge[i + 1]]
+
+        p = Pool()
+        ge = p.map(play, ge)
+
+        temp = []
+
+        # reflattening ge list
+        for group in ge:
+            temp.append(group[0])
+            temp.append(group[1])
+
+        ge = temp
+
+        # for game in games:
+        #     processes.append(Process(target=game.play))
+
+        # for process in processes:
+        #     process.start()
+
+        # for process in processes:
+        #     process.join()
 
         # flip colours after all games are finished before moving onto next game
         for player in players:
             player.flip_colour()
 
-        print(f"All games completed moving onto round {tournament_round}")
+        print(f"***All games completed moving onto round {tournament_round}***")
         tournament_round += 1
 
 
 def setup(config_path):
     config = neat.config.Config(neat.DefaultGenome, neat.DefaultReproduction,
-								neat.DefaultSpeciesSet, neat.DefaultStagnation,
-								config_path)
+                                neat.DefaultSpeciesSet, neat.DefaultStagnation,
+                                config_path)
 
     # setup population
     population = neat.Population(config)
