@@ -2,7 +2,7 @@ import chess
 import os
 import neat
 
-from multiprocessing import Pool
+from multiprocessing import Pool, Process, Pipe
 from agent.agent import Agent
 from settings import *
 
@@ -17,43 +17,43 @@ from settings import *
 generation = 0
 
 
-def play(ge):
-    global players
-    run = True
-    white_player = white_player
-    black_player = black_player
-    board = chess.Board()
+class Game:
+    def __init__(self, white_player, black_player):
+        self.white_player = white_player
+        self.black_player = black_player
 
-    while run:
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                run = False
+    def play(self, conn, index):
+        run = True
+        board = chess.Board()
 
-        turn = board.fen().split()[1]
+        while run:
+            turn = board.fen().split()[1]
 
-        if turn == "w":
-            move = white_player.get_move(board)[1]
-        else:
-            move = black_player.get_move(board)[1]
-
-        if move:
-            board.push(move)
-        else:
-            print(move)
-
-        if board.outcome():
-            run = False
-            result = board.outcome().result()
-
-            print(f"***Game finished***")
-            print(f"Result: {board.outcome().result()}")
-
-            if result == "1-0":
-                return [ge[0] + 1, ge[1]]
-            elif result == "0-1":
-                return [ge[0], ge[1] + 1]
+            if turn == "w":
+                move = self.white_player.get_move(board)[1]
             else:
-                return [ge[0] + 0.5, ge[1] + 0.5]
+                move = self.black_player.get_move(board)[1]
+
+            if move:
+                board.push(move)
+            else:
+                print(move)
+
+            if board.outcome():
+                run = False
+                result = board.outcome().result()
+
+                print(f"***Game {index + 1} finished***")
+
+                if result == "1-0":
+                    print("Result: White won.")
+                    conn.send(1)
+                elif result == "0-1":
+                    print("Result: Black won.")
+                    conn.send(-1)
+                else:
+                    print("Result: Draw.")
+                    conn.send(0)
 
 
 def main(genomes, config):
@@ -62,8 +62,8 @@ def main(genomes, config):
     generation += 1
 
     networks = []
-    players = []
-    ge = []
+    players  = []
+    ge       = []
 
     colour = "w"
 
@@ -84,6 +84,11 @@ def main(genomes, config):
     tournament_round = 1
 
     for _ in range(len(players)):
+        games     = []
+        processes = []
+        pipes     = []
+        results   = []
+
         last_player = players.pop()
         players.insert(0, last_player)
         last_network = networks.pop()
@@ -91,39 +96,49 @@ def main(genomes, config):
         last_ge = ge.pop()
         ge.insert(0, last_ge)
 
-        # for i in range(0, len(players), 2):
-        #     games.append(Game(players[i], players[i + 1], id=i))
+        for i in range(0, len(players), 2):
+            games.append(
+                Game(
+                    white_player=players[i],
+                    black_player=players[i + 1]
+                )
+            )
 
-        # grouping all networks together
-        for i in range(0, len(ge), 2):
-            ge[i] = [ge[i], ge[i + 1]]
+        for game in games:
+            parent_pipe, child_pipe = Pipe()
+            pipes.append(parent_pipe)
 
-        p = Pool()
-        ge = p.map(play, ge)
+            processes.append(
+                Process(target=game.play, args=(child_pipe, games.index(game)))
+            )
 
-        temp = []
+            results.append(None)
 
-        # reflattening ge list
-        for group in ge:
-            temp.append(group[0])
-            temp.append(group[1])
+        for process in processes:
+            process.start()
 
-        ge = temp
+        for i, pipe in enumerate(pipes):
+            results[i] = pipe.recv()
 
-        # for game in games:
-        #     processes.append(Process(target=game.play))
+        for process in processes:
+            process.join()
 
-        # for process in processes:
-        #     process.start()
-
-        # for process in processes:
-        #     process.join()
+        print(results)
+        for i in range(len(results)):
+            if results[i] == 1:
+                ge[i].fitness += 1
+            elif results[i] == -1:
+                ge[i + 1].fitness += 1
+            else:
+                ge[i].fitness += 0.5
+                ge[i + 1].fitness += 0.5
 
         # flip colours after all games are finished before moving onto next game
         for player in players:
             player.flip_colour()
 
-        print(f"***All games completed moving onto round {tournament_round}***")
+        print(
+            f"***All games completed moving onto round {tournament_round}***")
         tournament_round += 1
 
 
