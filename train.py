@@ -1,6 +1,7 @@
 import chess
 import os
 import neat
+import time
 
 from multiprocessing import Pool, Process, Pipe
 from agent.agent import Agent
@@ -18,9 +19,11 @@ generation = 0
 
 
 class Game:
-    def __init__(self, white_player, black_player):
+    def __init__(self, white_player, black_player, tournament_round, game):
         self.white_player = white_player
         self.black_player = black_player
+        self.path = os.path.join(os.getcwd(), "games",
+                                 f"{tournament_round}-{game}-{round(time.time())}.pgn")
 
     def play(self, conn, index):
         run = True
@@ -46,6 +49,7 @@ class Game:
                 print(f"***Game {index + 1} finished***")
 
                 if result == "1-0":
+
                     print("Result: White won.")
                     conn.send(1)
                 elif result == "0-1":
@@ -62,8 +66,8 @@ def main(genomes, config):
     generation += 1
 
     networks = []
-    players  = []
-    ge       = []
+    players = []
+    ge = []
 
     colour = "w"
 
@@ -84,10 +88,10 @@ def main(genomes, config):
     tournament_round = 1
 
     for _ in range(len(players)):
-        games     = []
+        games = []
         processes = []
-        pipes     = []
-        results   = []
+        pipes = []
+        results = []
 
         last_player = players.pop()
         players.insert(0, last_player)
@@ -100,7 +104,9 @@ def main(genomes, config):
             games.append(
                 Game(
                     white_player=players[i],
-                    black_player=players[i + 1]
+                    black_player=players[i + 1],
+                    tournament_round=tournament_round,
+                    game=i // 2
                 )
             )
 
@@ -123,15 +129,26 @@ def main(genomes, config):
         for process in processes:
             process.join()
 
-        print(results)
+        white_wins = 0
+        black_wins = 0
+        draws = 0
+
         for i in range(len(results)):
             if results[i] == 1:
+                white_wins += 1
                 ge[i].fitness += 1
             elif results[i] == -1:
+                black_wins += 1
                 ge[i + 1].fitness += 1
             else:
+                draws += 1
                 ge[i].fitness += 0.5
                 ge[i + 1].fitness += 0.5
+
+        print(f"***Results for round {tournament_round}***")
+        print(f"White wins: {white_wins}")
+        print(f"Black wins: {black_wins}")
+        print(f"Draws: {draws}")
 
         # flip colours after all games are finished before moving onto next game
         for player in players:
